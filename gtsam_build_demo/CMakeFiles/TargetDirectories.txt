@@ -1,0 +1,7 @@
+/home/wupengxin/gtsam_build/gtsam_build_demo/CMakeFiles/gtsam_dynamic.dir
+/home/wupengxin/gtsam_build/gtsam_build_demo/CMakeFiles/edit_cache.dir
+/home/wupengxin/gtsam_build/gtsam_build_demo/CMakeFiles/rebuild_cache.dir
+/home/wupengxin/gtsam_build/gtsam_build_demo/CMakeFiles/list_install_components.dir
+/home/wupengxin/gtsam_build/gtsam_build_demo/CMakeFiles/install.dir
+/home/wupengxin/gtsam_build/gtsam_build_demo/CMakeFiles/install/local.dir
+/home/wupengxin/gtsam_build/gtsam_build_demo/CMakeFiles/install/strip.dir

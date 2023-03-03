@@ -1,0 +1,3 @@
+/home/wupengxin/gtsam_build/CMakeFiles/gtsam_demo.dir
+/home/wupengxin/gtsam_build/CMakeFiles/edit_cache.dir
+/home/wupengxin/gtsam_build/CMakeFiles/rebuild_cache.dir
