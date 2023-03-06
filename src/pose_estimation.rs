@@ -1,6 +1,8 @@
 /*!
  * 使用pnp算法估计相机位姿 然后使用BA优化
  */
+use nalgebra::{Isometry3, Matrix6, Vector3, Vector6};
+use nalgebra::{Matrix2x6, Vector2};
 use opencv::core;
 use opencv::highgui;
 use opencv::imgcodecs;
@@ -239,5 +241,62 @@ impl PoseEstimation {
         let r = Rotation3::from_axis_angle(&Unit::new_normalize(angle_axis), angle_axis.norm());
         println!("r: {:?}", r);
         println!("t: {:?}", t);
+    }
+
+    // 手动GN求解
+    pub fn gn_slove(&self) {
+        let mut pose = Isometry3::new(
+            Vector3::new(0.0, 0.0, 0.0),
+            Vector3::y() * std::f32::consts::FRAC_PI_2,
+        );
+        let fx = self.camera_matrix.at_2d::<f32>(0, 0).unwrap();
+        let fy = self.camera_matrix.at_2d::<f32>(1, 1).unwrap();
+        let cx = self.camera_matrix.at_2d::<f32>(0, 2).unwrap();
+        let cy = self.camera_matrix.at_2d::<f32>(1, 2).unwrap();
+        for iter in 0..100 {
+            let mut H = Matrix6::<f32>::zeros();
+            let mut b = Vector6::<f32>::zeros();
+            // 计算所有的误差 和雅可比
+            let mut error = 0.0;
+            for i in 0..self.object_points.len() {
+                let point3d = self.object_points.get(i).unwrap();
+                let point2d = self.image_points.get(i).unwrap();
+                // 转化为相机坐标系
+                let point_in_caram = pose.inverse() * Vector3::new(point3d.x, point3d.y, point3d.z);
+                let inv_z = 1.0 / point_in_caram.z;
+                // 像素坐标
+                let pixel_point = Vector2::new(
+                    fx * point_in_caram.x * inv_z + cx,
+                    fy * point_in_caram.y * inv_z + cy,
+                );
+                let cur_e = Vector2::new(point2d.x, point2d.y) - pixel_point;
+                error += cur_e.norm();
+                // 计算雅可比
+                let mut jacobian = Matrix2x6::<f32>::zeros();
+                jacobian[(0, 0)] = -fx * inv_z;
+                jacobian[(0, 1)] = 0.0;
+                jacobian[(0, 2)] = fx * point_in_caram.x * inv_z * inv_z;
+                jacobian[(0, 3)] = fx * point_in_caram.x * point_in_caram.y * inv_z * inv_z;
+                jacobian[(0, 4)] = -fx - fx * point_in_caram.x * point_in_caram.x * inv_z * inv_z;
+                jacobian[(0, 5)] = fx * point_in_caram.y * inv_z;
+                jacobian[(1, 0)] = 0.0;
+                jacobian[(1, 1)] = -fy * inv_z;
+                jacobian[(1, 2)] = fy * point_in_caram.y * inv_z * inv_z;
+                jacobian[(1, 3)] = fy + fy * point_in_caram.y * point_in_caram.y * inv_z * inv_z;
+                jacobian[(1, 4)] = -fy * point_in_caram.x * point_in_caram.y * inv_z * inv_z;
+                jacobian[(1, 5)] = -fy * point_in_caram.x * inv_z;
+                H += jacobian.transpose() * jacobian;
+                b += -jacobian.transpose() * cur_e;
+            }
+            // H.ldlt().solve_mut(&mut b);
+            let dx = H.lu().solve(&b).unwrap();
+            use crate::se3;
+            pose = se3::exp(dx) * pose;
+            println!("iter: {}, error: {}", iter, error);
+            if dx.norm() < 1e-6 {
+                break;
+            }
+        }
+        println!("pose: {:?}", pose);
     }
 }

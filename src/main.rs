@@ -67,5 +67,6 @@ fn main() {
     pose_estimation.find_match_keypoints();
     pose_estimation.solve_pnp();
     pose_estimation.ba_slove();
+    pose_estimation.gn_slove();
     // pose_estimation.draw_matches();
 }
