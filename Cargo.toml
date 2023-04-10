@@ -10,6 +10,8 @@ cxx = "1.0"
 rand = "0.8.5"
 rand_distr = "0.4.3"
 opencv = "0.77.0"
+abow = {version = "0.4", default-features = false, features = ["bincode"]}
+anyhow = "1.0"
 
 
 [build-dependencies]

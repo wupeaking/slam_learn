@@ -17,15 +17,29 @@ class CeresBA
         bool operator()(const T *const angle_aixs, const T *const translate, T *residual) const
         { // angle_aixs 旋转向量(轴角) 使用三个变量来表示旋转 之前没有约束条件
             T rotate_point[3];
-            T point[3] = {T(x), T(y), T(z)};
-            ceres::AngleAxisRotatePoint(angle_aixs, point, rotate_point);
-            rotate_point[0] += translate[0];
-            rotate_point[1] += translate[1];
-            rotate_point[2] += translate[2];
+            T point[3] = {T(x), T(y), T(z)};  // 全局坐标
+            // 注意 这里求的是Rcw tcw（相机坐标系下看到全局原点的坐标） 
+            // Pc = Rcw*Pw+tcw  
+            // ceres::AngleAxisRotatePoint(angle_aixs, point, rotate_point);
+            // rotate_point[0] += translate[0];
+            // rotate_point[1] += translate[1];
+            // rotate_point[2] += translate[2];  
+
+            // 如果angle_aixs 代表相机坐标相对全局坐标的旋转Rwc translate代表相机在全局坐标下的位置（twc）
+            // 那么Pw=Rwc*Pc+t_wc   Pc=Rwc'*(Pw-twc)  
+            point[0] -= translate[0];
+            point[1] -= translate[1];
+            point[2] -= translate[2];
+            T angle_aixs_invert[3];
+            angle_aixs_invert[0] = -angle_aixs[0];
+            angle_aixs_invert[1] = -angle_aixs[1];
+            angle_aixs_invert[2] = -angle_aixs[2];
+            ceres::AngleAxisRotatePoint(angle_aixs_invert, point, rotate_point);
+
             residual[0] = T(u) - (T(fx) * (rotate_point[0] / rotate_point[2]) + T(cx));
             residual[1] = T(v) - (T(fy) * (rotate_point[1] / rotate_point[2]) + T(cy));
             return true;
-        }
+        } 
         // http : // ceres-solver.org/nnls_tutorial.html#bundle-adjustment
         // https://www.jianshu.com/p/34cb21e00264
 

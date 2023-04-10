@@ -10,12 +10,14 @@ std::unique_ptr<CeresBA> new_ceres_ba()
 
 void CeresBA::add_residual_block(double u, double v, double x, double y, double z)
 {
+    // 使用自动求导，模板参数：误差类型，输出维度，参数块1的维度，参数块2的维度...
+    ceres::CostFunction *cost_function = new ceres::AutoDiffCostFunction<CURVE_FITTER_COST, 2, 3, 3>(new CURVE_FITTER_COST(u, v, x, y, z));
     // 向问题中添加误差项
     problem.AddResidualBlock(
-        // 使用自动求导，模板参数：误差类型，输出维度，参数块1的维度，参数块2的维度...
-        new ceres::AutoDiffCostFunction<CURVE_FITTER_COST, 2, 3, 3>(new CURVE_FITTER_COST(u, v, x, y, z)),
+        cost_function,
         // 核函数，这里不使用，为空
         nullptr,
+        // new ceres::HuberLoss(1.0),
         // 待估计参数
         angleAxis, t);
 }

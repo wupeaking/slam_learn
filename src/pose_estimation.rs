@@ -290,6 +290,7 @@ impl PoseEstimation {
             }
             // H.ldlt().solve_mut(&mut b);
             let dx = H.lu().solve(&b).unwrap();
+            // let dx = H.try_inverse().unwrap() * b;
             use crate::se3;
             pose = se3::exp(dx) * pose;
             println!("iter: {}, error: {}", iter, error);
