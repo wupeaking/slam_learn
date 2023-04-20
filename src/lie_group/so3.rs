@@ -10,7 +10,7 @@
 //!     - details: <http://ethaneade.com/lie.pdf>
 //!     - summary: <http://ethaneade.com/lie_groups.pdf>
 
-use crate::se3::{Float, Mat3, Vec3};
+use crate::lie_group::se3::{Float, Mat3, Vec3};
 use nalgebra::{Quaternion, UnitQuaternion};
 use std::f32::consts::PI;
 

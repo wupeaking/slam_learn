@@ -1,13 +1,3 @@
-### install gtsam
-git clone git@github.com:borglab/gtsam.git
-git checkout 4.1.1
-mkdir build
-cd build
-
-修改CMakelists.txt文件，将
-cmake .. -DGTSAM_WITH_TBB=0 -DCMAKE_CXX_STANDARD=11 -DCMAKE_C_COMPILER=/usr/bin/gcc -DCMAKE_CXX_COMPILER=/usr/bin/g++
-make install
-
 
 ### 问题
 目前对于调用C++的动态库 只能先用C封装一下 然后手动生成C的动态库  在build.rs里面再手动指定动态库的路径和名字

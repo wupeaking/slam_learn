@@ -7,31 +7,6 @@ use opencv::{self, core, highgui, imgcodecs, imgproc, prelude::*};
 
 fn main() {
     // use crate::demo;
-    use cxx_build::ffi::ABC;
-    unsafe {
-        let mut c = cxx_build::ffi::new_abc();
-        c.print();
-        c.as_mut().unwrap().add("heee");
-        println!("get 0: {} ", c.as_mut().unwrap().get(0));
-    }
-    // cxx_build::ffi::example();
-    println!("rust call c++");
-
-    unsafe {
-        let mut ceres = ceres_bind::ffi::new_ceres_warp();
-        use rand_distr::{Distribution, Normal, NormalInverseGaussian};
-        let (a, b, c) = (1.0, 2.0, 1.0);
-        for i in 0..100 {
-            let normal = Normal::new(0.0, 2.0).unwrap();
-            let v = normal.sample(&mut rand::thread_rng());
-            println!("v: {}", v);
-            let x = i as f64 / 100.0;
-            let y = (a * x * x + b * x + c).exp() + v;
-            println!("x: {}, y: {}", x, y);
-            ceres.as_mut().unwrap().add_residual_block(x, y);
-        }
-        ceres.as_mut().unwrap().solve();
-    }
 
     let mut k = opencv::core::Mat::new_rows_cols_with_default(
         3,
@@ -57,7 +32,7 @@ fn main() {
     *k.at_2d_mut::<f32>(2, 0).unwrap() = 0.0;
     *k.at_2d_mut::<f32>(2, 1).unwrap() = 0.0;
     *k.at_2d_mut::<f32>(2, 2).unwrap() = 1.0;
-    let mut pose_estimation = PoseEstimation::new(
+    let mut pose_estimation = PoseEstimation::<core::Point2f, core::Point2f>::new(
         kk,
         "data/1.png".to_string(),
         "data/2.png".to_string(),
@@ -65,8 +40,10 @@ fn main() {
     );
     // 查找匹配点
     pose_estimation.find_match_keypoints();
-    pose_estimation.solve_pnp();
-    pose_estimation.ba_slove();
-    pose_estimation.gn_slove();
-    // pose_estimation.draw_matches();
+    // pose_estimation.solve_pnp();
+    let e_mat = pose_estimation.solve_carame_pose();
+    pose_estimation.check_epipolar_constraint(&e_mat);
+    // pose_estimation.ba_slove();
+    // pose_estimation.gn_slove();
+    pose_estimation.draw_matches();
 }

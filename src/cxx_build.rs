@@ -16,3 +16,20 @@ pub mod ffi {
         fn get(&self, index: i32) -> &str;
     }
 }
+
+// test
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn it_works() {
+        unsafe {
+            let mut c = ffi::new_abc();
+            c.print();
+            c.as_mut().unwrap().add("heee");
+            println!("get 0: {} ", c.as_mut().unwrap().get(0));
+        }
+        // cxx_build::ffi::example();
+        println!("rust call c++");
+    }
+}

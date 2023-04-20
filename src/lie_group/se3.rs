@@ -10,7 +10,7 @@
 //!     - details: <http://ethaneade.com/lie.pdf>
 //!     - summary: <http://ethaneade.com/lie_groups.pdf>
 
-use crate::so3;
+use crate::lie_group::so3;
 use nalgebra::{Quaternion, Translation3, UnitQuaternion};
 use std::f32::consts::PI;
 

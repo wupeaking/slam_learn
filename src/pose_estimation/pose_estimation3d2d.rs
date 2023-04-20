@@ -1,101 +1,28 @@
 /*!
  * 使用pnp算法估计相机位姿 然后使用BA优化
+ * 使用两种方案根据3d点和2d点求解相机的位姿
+ * 1. 使用opencv的solvePnP
+ * 2. 使用ceres的BA优化
+ *
+ * 流程：
+ * 1. 读取图像和深度图像
+ * 2. 提取特征点和描述子
+ * 3. 匹配特征点
+ * 4. 使用pnp算法求解相机位姿
+ * 5. 使用ceres的BA优化求解相机位姿
  */
+use crate::pose_estimation::pose_estimation::PoseEstimation;
 use nalgebra::{Isometry3, Matrix6, Vector3, Vector6};
 use nalgebra::{Matrix2x6, Vector2};
 use opencv::core;
-use opencv::highgui;
+// use opencv::highgui;
 use opencv::imgcodecs;
-use opencv::imgproc;
+// use opencv::imgproc;
 use opencv::prelude::*;
 
 // 3d点到2d点转换 求出R t
-pub struct PoseEstimation {
-    // 相机内参
-    camera_matrix: core::Mat,
-    // 3D点
-    object_points: core::Vector<core::Point3f>,
-    // 2D点
-    image_points: core::Vector<core::Point2f>,
-    // 匹配的特征点
-    good_matches: core::Vector<core::DMatch>,
 
-    keypoint1: core::Vector<core::KeyPoint>,
-    keypoint2: core::Vector<core::KeyPoint>,
-    descriptors1: core::Mat,
-    descriptors2: core::Mat,
-    img1: String,
-    img2: String,
-    img_depth: String,
-}
-
-impl PoseEstimation {
-    pub fn new(camera_matrix: core::Mat, img1: String, img2: String, img_depth: String) -> Self {
-        let object_points = core::Vector::<core::Point3f>::new();
-        let image_points = core::Vector::<core::Point2f>::new();
-        let good_matches = core::Vector::<core::DMatch>::new();
-        Self {
-            camera_matrix,
-            object_points,
-            image_points,
-            good_matches,
-            keypoint1: core::Vector::<core::KeyPoint>::new(),
-            keypoint2: core::Vector::<core::KeyPoint>::new(),
-            descriptors1: core::Mat::default(),
-            descriptors2: core::Mat::default(),
-            img1,
-            img2,
-            img_depth,
-        }
-    }
-
-    pub fn find_match_keypoints(&mut self) {
-        let mut img1 = imgcodecs::imread(&self.img1, imgcodecs::IMREAD_COLOR).unwrap();
-        let mut img2 = imgcodecs::imread(&self.img2, imgcodecs::IMREAD_COLOR).unwrap();
-        let mut keypoints1 = core::Vector::<core::KeyPoint>::new();
-        let mut keypoints2 = core::Vector::<core::KeyPoint>::new();
-        let mut descriptors1 = core::Mat::default();
-        let mut descriptors2 = core::Mat::default();
-        self.detect_keypoint_desc(&mut img1, &mut keypoints1, &mut descriptors1);
-        self.detect_keypoint_desc(&mut img2, &mut keypoints2, &mut descriptors2);
-
-        // //  匹配特征点
-        let mut matches = core::Vector::<core::DMatch>::new();
-        let mut matcher =
-            <dyn opencv::features2d::DescriptorMatcher>::create("BruteForce-Hamming").unwrap();
-        matcher.add(&descriptors2).unwrap();
-        matcher
-            .match_(&descriptors1, &mut matches, &core::Mat::default())
-            .unwrap();
-        println!(
-            "matches size: {}, origin size: {}",
-            matches.len(),
-            descriptors1.rows()
-        );
-        let (mut min_dist, mut max_dist) = (f32::MAX, 0.0);
-        matches.iter().for_each(|m| {
-            if min_dist > m.distance {
-                min_dist = m.distance;
-            }
-            if max_dist < m.distance {
-                max_dist = m.distance;
-            }
-        });
-        println!("min_dist: {}, max_dist: {}", min_dist, max_dist);
-        let mut good_matches = core::Vector::<core::DMatch>::new();
-        for i in 0..matches.len() {
-            if matches.get(i as usize).unwrap().distance < 2.0 * min_dist.max(20.0) {
-                good_matches.push(matches.get(i as usize).unwrap());
-            }
-        }
-        println!("good matches size: {}", good_matches.len());
-        self.good_matches = good_matches;
-        self.keypoint1 = keypoints1;
-        self.keypoint2 = keypoints2;
-        self.descriptors1 = descriptors1;
-        self.descriptors2 = descriptors2;
-    }
-
+impl PoseEstimation<core::Point3f, core::Point2f> {
     // 根据深度图找到对应的3d 和2d点
     fn find_3d_2d_pairs(&mut self) {
         let img_depth = imgcodecs::imread(&self.img_depth, imgcodecs::IMREAD_UNCHANGED).unwrap();
@@ -145,69 +72,9 @@ impl PoseEstimation {
         println!("rmat: {:?}", rmat.to_vec_2d::<f64>());
         println!("tvec: {:?}", tvec.to_vec_2d::<f64>());
     }
-
-    // 像素坐标转相机坐标
-    fn pixel_to_camaera(&self, p: &core::Point2f) -> core::Point2f {
-        let fx = self.camera_matrix.at_2d::<f32>(0, 0).unwrap();
-        let fy = self.camera_matrix.at_2d::<f32>(1, 1).unwrap();
-        let cx = self.camera_matrix.at_2d::<f32>(0, 2).unwrap();
-        let cy = self.camera_matrix.at_2d::<f32>(1, 2).unwrap();
-        core::Point2f::new((p.x - cx) / fx, (p.y - cy) / fy)
-    }
-
-    pub fn draw_matches(&mut self) {
-        // 绘制匹配点
-        let mut img1 = imgcodecs::imread(&self.img1, imgcodecs::IMREAD_COLOR).unwrap();
-        let mut img2 = imgcodecs::imread(&self.img2, imgcodecs::IMREAD_COLOR).unwrap();
-        let mut out_image = core::Mat::default();
-        opencv::features2d::draw_matches(
-            &mut img1,
-            &self.keypoint1,
-            &mut img2,
-            &self.keypoint2,
-            &self.good_matches,
-            &mut out_image,
-            core::VecN([0., 255., 0., 255.]),
-            core::VecN([100., 255., 100., 255.]),
-            &core::Vector::<i8>::new(),
-            opencv::features2d::DrawMatchesFlags::DEFAULT,
-        )
-        .unwrap();
-
-        highgui::named_window("orb", highgui::WINDOW_NORMAL).unwrap();
-        // 显示图片
-        highgui::resize_window("orb", 255, 255).unwrap();
-        highgui::imshow("orb", &out_image).unwrap();
-        // highgui::imshow("orb", &out_image).unwrap();
-        highgui::wait_key(0).unwrap(); // 等待按键退出
-        println!("opencv exit");
-    }
 }
 
-impl PoseEstimation {
-    fn detect_keypoint_desc(
-        &self,
-        img: &mut core::Mat,
-        key_point: &mut core::Vector<core::KeyPoint>,
-        desc: &mut core::Mat,
-    ) {
-        let mut orb = <dyn opencv::features2d::ORB>::create(
-            500,                                             // 特征点数量
-            1.2,                                             // 金字塔缩放比例
-            8,                                               // 金字塔层数
-            31,                                              // 每个特征点的像素邻域大小
-            0,                                               // 特征点阈值
-            2,                                               // 金字塔初始层数
-            opencv::features2d::ORB_ScoreType::HARRIS_SCORE, // HARRIS_SCORE
-            31,                                              // FAST_THRESHOLD
-            20,
-        )
-        .unwrap();
-        let mut mask = core::Mat::default();
-        orb.detect_and_compute(img, &mut mask, key_point, desc, false)
-            .unwrap();
-    }
-
+impl PoseEstimation<core::Point3f, core::Point2f> {
     // 通过BA优化求解
     pub fn ba_slove(&self) {
         use crate::ceres_ba_bind::ffi::*;
@@ -291,13 +158,57 @@ impl PoseEstimation {
             // H.ldlt().solve_mut(&mut b);
             let dx = H.lu().solve(&b).unwrap();
             // let dx = H.try_inverse().unwrap() * b;
-            use crate::se3;
-            pose = se3::exp(dx) * pose;
+            use crate::lie_group;
+            pose = lie_group::se3::exp(dx) * pose;
             println!("iter: {}, error: {}", iter, error);
             if dx.norm() < 1e-6 {
                 break;
             }
         }
         println!("pose: {:?}", pose);
+    }
+}
+
+#[cfg(test)]
+mod pose_test {
+    // cargo test -- --nocapture
+    use super::*;
+    #[test]
+    fn test_pose_slove() {
+        let mut k = opencv::core::Mat::new_rows_cols_with_default(
+            3,
+            3,
+            opencv::core::CV_32FC1,
+            core::Scalar_::<f64>::from([0.0, 0.0, 0.0, 0.0]),
+        )
+        .unwrap();
+        let kk = opencv::core::Mat::from_slice_rows_cols(
+            &[520.9_f32, 0.0, 325.1, 0.0, 521.0, 249.7, 0.0, 0.0, 1.0],
+            3,
+            3,
+        )
+        .unwrap();
+        // kk.to_vec_2d()
+        // 520.9, 0, 325.1, 0, 521.0, 249.7, 0, 0, 1)
+        *k.at_2d_mut::<f32>(0, 0).unwrap() = 520.9;
+        *k.at_2d_mut::<f32>(0, 1).unwrap() = 0.0;
+        *k.at_2d_mut::<f32>(0, 2).unwrap() = 325.1;
+        *k.at_2d_mut::<f32>(1, 0).unwrap() = 0.0;
+        *k.at_2d_mut::<f32>(1, 1).unwrap() = 521.0;
+        *k.at_2d_mut::<f32>(1, 2).unwrap() = 249.7;
+        *k.at_2d_mut::<f32>(2, 0).unwrap() = 0.0;
+        *k.at_2d_mut::<f32>(2, 1).unwrap() = 0.0;
+        *k.at_2d_mut::<f32>(2, 2).unwrap() = 1.0;
+        let mut pose_estimation = PoseEstimation::<core::Point3f, core::Point2f>::new(
+            kk,
+            "data/1.png".to_string(),
+            "data/2.png".to_string(),
+            "data/1_depth.png".to_string(),
+        );
+        // 查找匹配点
+        pose_estimation.find_match_keypoints();
+        pose_estimation.solve_pnp();
+        pose_estimation.ba_slove();
+        pose_estimation.gn_slove();
     }
 }
