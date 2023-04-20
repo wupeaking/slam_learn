@@ -9,7 +9,7 @@ void CeresWarp::add_residual_block(double x, double y)
 {
     // 向问题中添加误差项
     problem.AddResidualBlock(
-        // 使用自动求导，模板参数：误差类型，输出维度，输入维度
+        // 使用自动求导，模板参数：误差函数，残差数量，参数块1的数量(待优化参数), 参数块2的数量(待优化参数)...
         new ceres::AutoDiffCostFunction<CURVE_FITTER_COST, 1, 3>(new CURVE_FITTER_COST(x, y)),
         // 核函数，这里不使用，为空
         nullptr,
