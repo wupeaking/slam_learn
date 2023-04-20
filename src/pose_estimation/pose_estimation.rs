@@ -11,7 +11,7 @@
  * 4. 使用pnp算法求解相机位姿
  * 5. 使用ceres的BA优化求解相机位姿
  */
-use nalgebra::{Isometry3, Matrix6, Vector3, Vector6};
+use nalgebra::{Isometry3, Matrix3, Vector3, Vector6};
 use nalgebra::{Matrix2x6, Vector2};
 use opencv::core;
 use opencv::highgui;
@@ -178,5 +178,46 @@ where
         let mut mask = core::Mat::default();
         orb.detect_and_compute(img, &mut mask, key_point, desc, false)
             .unwrap();
+    }
+
+    // 三角测量计算深度
+    // p1: 特征点在图像1中的像素坐标
+    // p2: 特征点在图像2中的像素坐标
+    // camera_matrix: 相机内参
+    // r: 旋转矩阵 R21
+    // t: 平移矩阵 t21 相机2坐标系下的平移向量
+    // 返回值 (s1, s2)  s1: 特征点在图像1中的深度 s2: 特征点在图像2中的深度
+    pub fn triangulation(
+        &self,
+        p1: &core::Point2f,
+        p2: &core::Point2f,
+        r: &core::Mat,
+        t: &core::Mat,
+    ) -> (f32, f32) {
+        let P1 = self.pixel_to_camaera(p1);
+        let P2 = self.pixel_to_camaera(p2);
+        let x1 = Vector3::new(P1.x, P1.y, 1.0);
+        let x2 = Vector3::new(P2.x, P2.y, 1.0);
+        let r_vec = r.to_vec_2d::<f64>().unwrap();
+        let r = Matrix3::new(
+            r_vec[0][0] as f32,
+            r_vec[0][1] as f32,
+            r_vec[0][2] as f32,
+            r_vec[1][0] as f32,
+            r_vec[1][1] as f32,
+            r_vec[1][2] as f32,
+            r_vec[2][0] as f32,
+            r_vec[2][1] as f32,
+            r_vec[2][2] as f32,
+        );
+        let t_vec = t.to_vec_2d::<f64>().unwrap();
+        let t = Vector3::new(t_vec[0][0] as f32, t_vec[1][0] as f32, t_vec[2][0] as f32);
+        let x2_hat = Matrix3::new(0.0, -x2[2], x2[1], x2[2], 0.0, -x2[0], -x2[1], x2[0], 0.0);
+        let tmp1 = x2_hat * r * t;
+        let tmp2 = x2_hat * t;
+        let s1 = -tmp2.norm() / tmp1.norm();
+        // s2x2 = s1Rtx1+t
+        let s2 = (r * x1 * s1 + t).norm() / x2.norm();
+        (s1, s2)
     }
 }

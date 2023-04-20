@@ -41,8 +41,9 @@ fn main() {
     // 查找匹配点
     pose_estimation.find_match_keypoints();
     // pose_estimation.solve_pnp();
-    let e_mat = pose_estimation.solve_carame_pose();
+    let (e_mat, r, t) = pose_estimation.solve_carame_pose();
     pose_estimation.check_epipolar_constraint(&e_mat);
+    pose_estimation.triangulation_match_points(&r, &t);
     // pose_estimation.ba_slove();
     // pose_estimation.gn_slove();
     pose_estimation.draw_matches();

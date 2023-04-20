@@ -17,7 +17,7 @@ impl PoseEstimation<core::Point2f, core::Point2f> {
             // println!("kp: {:?} kp2: {:?}", kp.pt(), kp2.pt());
         }
     }
-    pub fn solve_carame_pose(&mut self) -> core::Mat {
+    pub fn solve_carame_pose(&mut self) -> (core::Mat, core::Mat, core::Mat) {
         self.find_2d_2d_pairs();
         let mut rmat = core::Mat::default();
         let mut tvec = core::Mat::default();
@@ -54,7 +54,7 @@ impl PoseEstimation<core::Point2f, core::Point2f> {
         println!("rmat: {:?}", rmat.to_vec_2d::<f64>());
         println!("tvec: {:?}", tvec.to_vec_2d::<f64>());
         println!("points num: {:?}", points_num);
-        e_mat
+        (e_mat, rmat, tvec)
     }
 
     // 校验对极约束
@@ -95,5 +95,64 @@ impl PoseEstimation<core::Point2f, core::Point2f> {
             let epipolar_constraint = x2.transpose() * e_mat * x1;
             println!("epipolar_constraint: {:?}", epipolar_constraint);
         }
+    }
+
+    // 求解每个匹配点的3d坐标
+    pub fn triangulation_match_points(&self, r: &core::Mat, t: &core::Mat) {
+        for i in 0..self.object_points.len() {
+            let p1 = self.object_points.get(i).unwrap();
+            let p2 = self.image_points.get(i).unwrap();
+            let (s1, s2) = self.triangulation(&p1, &p2, r, t);
+            let p1_in_camera = self.pixel_to_camaera(&p1);
+            let p2_in_camera = self.pixel_to_camaera(&p2);
+            println!("像素坐标值: {:?}, 相机坐标系下坐标: {:?}, 像素坐标值: {:?}, 相机坐标系下坐标: {:?},", 
+            p1, (s1*p1_in_camera.x, s1*p1_in_camera.y, s1), p2, (s2*p2_in_camera.x, s2*p2_in_camera.y, s2));
+        }
+    }
+}
+
+// 添加测试代码
+#[cfg(test)]
+mod test {
+    use super::*;
+    use opencv::{core, prelude::*, types::VectorOfMat};
+
+    #[test]
+    fn test_solve_carame_pose() {
+        let mut k = opencv::core::Mat::new_rows_cols_with_default(
+            3,
+            3,
+            opencv::core::CV_32FC1,
+            core::Scalar_::<f64>::from([0.0, 0.0, 0.0, 0.0]),
+        )
+        .unwrap();
+        let kk = opencv::core::Mat::from_slice_rows_cols(
+            &[520.9_f32, 0.0, 325.1, 0.0, 521.0, 249.7, 0.0, 0.0, 1.0],
+            3,
+            3,
+        )
+        .unwrap();
+        // kk.to_vec_2d()
+        // 520.9, 0, 325.1, 0, 521.0, 249.7, 0, 0, 1)
+        *k.at_2d_mut::<f32>(0, 0).unwrap() = 520.9;
+        *k.at_2d_mut::<f32>(0, 1).unwrap() = 0.0;
+        *k.at_2d_mut::<f32>(0, 2).unwrap() = 325.1;
+        *k.at_2d_mut::<f32>(1, 0).unwrap() = 0.0;
+        *k.at_2d_mut::<f32>(1, 1).unwrap() = 521.0;
+        *k.at_2d_mut::<f32>(1, 2).unwrap() = 249.7;
+        *k.at_2d_mut::<f32>(2, 0).unwrap() = 0.0;
+        *k.at_2d_mut::<f32>(2, 1).unwrap() = 0.0;
+        *k.at_2d_mut::<f32>(2, 2).unwrap() = 1.0;
+        let mut pose_estimation = PoseEstimation::<core::Point2f, core::Point2f>::new(
+            kk,
+            "data/1.png".to_string(),
+            "data/2.png".to_string(),
+            "data/1_depth.png".to_string(),
+        );
+        // 查找匹配点
+        pose_estimation.find_match_keypoints();
+        let (e_mat, _, _) = pose_estimation.solve_carame_pose();
+        // 打印对极约束
+        pose_estimation.check_epipolar_constraint(&e_mat);
     }
 }
