@@ -32,19 +32,12 @@ fn main() {
     *k.at_2d_mut::<f32>(2, 0).unwrap() = 0.0;
     *k.at_2d_mut::<f32>(2, 1).unwrap() = 0.0;
     *k.at_2d_mut::<f32>(2, 2).unwrap() = 1.0;
-    let mut pose_estimation = PoseEstimation::<core::Point2f, core::Point2f>::new(
+    let mut pose_estimation = PoseEstimation::<core::Point3f, core::Point2f>::new(
         kk,
         "data/1.png".to_string(),
         "data/2.png".to_string(),
         "data/1_depth.png".to_string(),
     );
-    // 查找匹配点
-    pose_estimation.find_match_keypoints();
-    // pose_estimation.solve_pnp();
-    let (e_mat, r, t) = pose_estimation.solve_carame_pose();
-    pose_estimation.check_epipolar_constraint(&e_mat);
-    pose_estimation.triangulation_match_points(&r, &t);
-    // pose_estimation.ba_slove();
-    // pose_estimation.gn_slove();
-    pose_estimation.draw_matches();
+    // use cpose_estimation::PoseEstimationDemo;
+    pose_estimation.run();
 }

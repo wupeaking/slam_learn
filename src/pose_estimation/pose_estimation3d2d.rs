@@ -12,13 +12,15 @@
  * 5. 使用ceres的BA优化求解相机位姿
  */
 use crate::pose_estimation::pose_estimation::PoseEstimation;
-use nalgebra::{Isometry3, Matrix6, Vector3, Vector6};
+use nalgebra::{Isometry3, Matrix2, Matrix6, Vector3, Vector6};
 use nalgebra::{Matrix2x6, Vector2};
 use opencv::core;
 // use opencv::highgui;
 use opencv::imgcodecs;
 // use opencv::imgproc;
 use opencv::prelude::*;
+
+use super::PoseEstimationDemo;
 
 // 3d点到2d点转换 求出R t
 
@@ -33,20 +35,21 @@ impl PoseEstimation<core::Point3f, core::Point2f> {
             let depth = img_depth
                 .at_2d::<u16>(kp.pt().y as i32, kp.pt().x as i32)
                 .unwrap();
+            // let depth = img_depth[kp.pt().x as usize][kp.pt().y as usize];
             if *depth == 0 {
+                print!("{} {} depth is zero!!!!", kp.pt().x, kp.pt().y);
                 continue;
             }
             let d = *depth as f32 / 5000.0;
             let camaera_point = self.pixel_to_camaera(&kp.pt());
 
-            self.object_points.push(core::Point3f::new(
-                camaera_point.x * d,
-                camaera_point.y * d,
-                d,
-            ));
+            let point3d = core::Point3f::new(camaera_point.x * d, camaera_point.y * d, d);
+            println!("x: {} y: {} d: {}", point3d.x, point3d.y, point3d.z);
+            self.object_points.push(point3d);
 
             let kp2 = self.keypoint2.get(m.train_idx as usize).unwrap();
-            self.image_points.push(self.pixel_to_camaera(&kp2.pt()));
+            // self.image_points.push(self.pixel_to_camaera(&kp2.pt()));
+            self.image_points.push(kp2.pt()); // 像素坐标 不是相机坐标系下的坐标
         }
     }
 
@@ -55,6 +58,7 @@ impl PoseEstimation<core::Point3f, core::Point2f> {
         self.find_3d_2d_pairs();
         let mut rvec = core::Mat::default();
         let mut tvec = core::Mat::default();
+        // 注意：solve_pnp 2d点传入的是像素坐标 3d点传入的是相机坐标系下的坐标
         opencv::calib3d::solve_pnp(
             &self.object_points,
             &self.image_points,
@@ -63,7 +67,7 @@ impl PoseEstimation<core::Point3f, core::Point2f> {
             &mut rvec,
             &mut tvec,
             false,
-            opencv::calib3d::SOLVEPNP_EPNP,
+            opencv::calib3d::SOLVEPNP_ITERATIVE, // opencv::calib3d::SOLVEPNP_EPNP,
         )
         .unwrap();
         // 旋转向量形式，用Rodrigues公式转换为矩阵
@@ -112,30 +116,32 @@ impl PoseEstimation<core::Point3f, core::Point2f> {
 
     // 手动GN求解
     pub fn gn_slove(&self) {
-        let mut pose = Isometry3::new(
-            Vector3::new(0.0, 0.0, 0.0),
-            Vector3::y() * std::f32::consts::FRAC_PI_2,
-        );
+        // R21 t21
+        // let mut pose = Isometry3::new(Vector3::new(0.0, 0.0, 0.0), Vector3::y() * 0_f32);
+        let mut pose = Isometry3::identity();
         let fx = self.camera_matrix.at_2d::<f32>(0, 0).unwrap();
         let fy = self.camera_matrix.at_2d::<f32>(1, 1).unwrap();
         let cx = self.camera_matrix.at_2d::<f32>(0, 2).unwrap();
         let cy = self.camera_matrix.at_2d::<f32>(1, 2).unwrap();
+        let mut last_error = 0.0;
         for iter in 0..100 {
             let mut H = Matrix6::<f32>::zeros();
+            // let mut H = Matrix2::<f32>::zeros();
             let mut b = Vector6::<f32>::zeros();
             // 计算所有的误差 和雅可比
             let mut error = 0.0;
             for i in 0..self.object_points.len() {
                 let point3d = self.object_points.get(i).unwrap();
                 let point2d = self.image_points.get(i).unwrap();
-                // 转化为相机坐标系
-                let point_in_caram = pose.inverse() * Vector3::new(point3d.x, point3d.y, point3d.z);
+                // 转化为第二幅图的相机坐标系下坐标 P'
+                let point_in_caram = pose * Vector3::new(point3d.x, point3d.y, point3d.z);
                 let inv_z = 1.0 / point_in_caram.z;
-                // 像素坐标
+                // 将估算的相机坐标转为像素坐标
                 let pixel_point = Vector2::new(
-                    fx * point_in_caram.x * inv_z + cx,
-                    fy * point_in_caram.y * inv_z + cy,
+                    fx * point_in_caram.x / point_in_caram.z + cx,
+                    fy * point_in_caram.y / point_in_caram.z + cy,
                 );
+                // 误差项为 观测像素坐标 - 估算的像素坐标
                 let cur_e = Vector2::new(point2d.x, point2d.y) - pixel_point;
                 error += cur_e.norm();
                 // 计算雅可比
@@ -153,19 +159,88 @@ impl PoseEstimation<core::Point3f, core::Point2f> {
                 jacobian[(1, 4)] = -fy * point_in_caram.x * point_in_caram.y * inv_z * inv_z;
                 jacobian[(1, 5)] = -fy * point_in_caram.x * inv_z;
                 H += jacobian.transpose() * jacobian;
+                // H += jacobian * jacobian.transpose();
                 b += -jacobian.transpose() * cur_e;
             }
             // H.ldlt().solve_mut(&mut b);
             let dx = H.lu().solve(&b).unwrap();
             // let dx = H.try_inverse().unwrap() * b;
+
+            // 如果last_error > error 说明误差在增大 说明迭代到了极值点
+            if last_error > error && iter > 0 {
+                break;
+            }
             use crate::lie_group;
+            // 要求dx的平移在前 旋转在后
             pose = lie_group::se3::exp(dx) * pose;
+            // println!(
+            //     "pose r: {},
+            //      pose t: {},
+            //      dx: {}",
+            //     pose.rotation.to_rotation_matrix(),
+            //     pose.translation,
+            //     dx
+            // );
             println!("iter: {}, error: {}", iter, error);
+            last_error = error;
             if dx.norm() < 1e-6 {
                 break;
             }
         }
-        println!("pose: {:?}", pose);
+        println!(
+            "pose r: {},
+             pose t: {},
+            ",
+            pose.rotation.to_rotation_matrix(),
+            pose.translation,
+        );
+    }
+
+    pub fn se3_demo(&self) {
+        let mut pose = Isometry3::new(
+            Vector3::new(1.0_f32, 0.0, 0.0),
+            Vector3::<f32>::new(1.0, 0.0, 1.0).normalize() * std::f32::consts::FRAC_PI_6,
+        );
+        // 注意使用{:?}打印的旋转矩阵是按列向量形式打印的 比较坑
+        println!(
+            "rotation_matrix: {:?}, t: {:?}",
+            pose.rotation.to_rotation_matrix(),
+            pose.translation
+        );
+        println!(
+            "rotation_matrix: {}, t: {}",
+            pose.rotation.to_rotation_matrix(),
+            pose.translation
+        );
+        // use nalgebra::{Rotation3, Unit};
+        // let axis = Vector3::<f32>::new(1.0, 0.0, 1.0);
+        // let axis = Unit::new_normalize(axis);
+        // let rotation_matrix = Rotation3::from_axis_angle(&axis, std::f32::consts::FRAC_PI_6);
+        // println!(
+        //     "rotation_matrix: {:?} (1,1): {:?}",
+        //     rotation_matrix,
+        //     rotation_matrix[(0, 1)],
+        // );
+        use crate::lie_group;
+        use nalgebra::Vector6;
+        let mut up = Vector6::<f32>::new(1.0, 2.0, 3.0, 4.0, 5.0, 6.0);
+        // up[(0, 0)] = 1e-0_f32;
+        pose = lie_group::se3::exp(up) * pose;
+        println!(
+            "rotation_matrix_up: {:?}, t: {:?}",
+            pose.rotation.to_rotation_matrix(),
+            pose.translation
+        );
+    }
+}
+
+impl PoseEstimationDemo for PoseEstimation<core::Point3f, core::Point2f> {
+    fn run(&mut self) {
+        self.find_match_keypoints();
+        self.solve_pnp();
+        self.gn_slove();
+        self.ba_slove();
+        self.draw_matches();
     }
 }
 

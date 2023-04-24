@@ -1,4 +1,4 @@
-use super::pose_estimation::PoseEstimation;
+use super::{pose_estimation::PoseEstimation, PoseEstimationDemo};
 use opencv::{core, prelude::*};
 
 impl PoseEstimation<core::Point2f, core::Point2f> {
@@ -154,5 +154,19 @@ mod test {
         let (e_mat, _, _) = pose_estimation.solve_carame_pose();
         // 打印对极约束
         pose_estimation.check_epipolar_constraint(&e_mat);
+    }
+}
+
+impl PoseEstimationDemo for PoseEstimation<core::Point2f, core::Point2f> {
+    fn run(&mut self) {
+        // 查找匹配点
+        self.find_match_keypoints();
+        // 求解相机位姿
+        let (e_mat, r, t) = self.solve_carame_pose();
+        // 打印对极约束
+        self.check_epipolar_constraint(&e_mat);
+        // 求解每个匹配点的3d坐标
+        self.triangulation_match_points(&r, &t);
+        self.draw_matches();
     }
 }
