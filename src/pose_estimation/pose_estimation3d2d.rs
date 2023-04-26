@@ -32,6 +32,7 @@ impl PoseEstimation<core::Point3f, core::Point2f> {
             // keypoint1 的 x y 像素
             let kp = self.keypoint1.get(m.query_idx as usize).unwrap();
             // img_depth[kp.pt().x as usize][kp.pt().y as usize];
+            // 注意 opecv中x是列y是行
             let depth = img_depth
                 .at_2d::<u16>(kp.pt().y as i32, kp.pt().x as i32)
                 .unwrap();
@@ -240,7 +241,7 @@ impl PoseEstimationDemo for PoseEstimation<core::Point3f, core::Point2f> {
         self.solve_pnp();
         self.gn_slove();
         self.ba_slove();
-        self.draw_matches();
+        // self.draw_matches();
     }
 }
 

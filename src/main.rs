@@ -2,8 +2,9 @@
 // mod bindings;
 mod ceres_bind;
 mod cxx_build;
+use gtsam_build::lk_flow;
 use gtsam_build::pose_estimation::*;
-use opencv::{self, core, highgui, imgcodecs, imgproc, prelude::*};
+use opencv::{self, core, prelude::*};
 
 fn main() {
     // use crate::demo;
@@ -40,4 +41,7 @@ fn main() {
     );
     // use cpose_estimation::PoseEstimationDemo;
     pose_estimation.run();
+
+    let mut lk = lk_flow::LKFlow::new("data/1.png".to_string(), "data/2.png".to_string());
+    lk.opencv_flow();
 }
