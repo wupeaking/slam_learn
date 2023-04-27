@@ -2,6 +2,7 @@
 // mod bindings;
 mod ceres_bind;
 mod cxx_build;
+use gtsam_build::bal_optimization::*;
 use gtsam_build::lk_flow;
 use gtsam_build::pose_estimation::*;
 use opencv::{self, core, prelude::*};
@@ -44,4 +45,8 @@ fn main() {
 
     let mut lk = lk_flow::LKFlow::new("data/1.png".to_string(), "data/2.png".to_string());
     lk.opencv_flow();
+
+    let mut opt = BALOpt::new("data/problem.txt").unwrap();
+    opt.optimization();
+    opt.print_opt_result();
 }

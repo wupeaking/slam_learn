@@ -82,7 +82,7 @@ impl PoseEstimation<core::Point3f, core::Point2f> {
 impl PoseEstimation<core::Point3f, core::Point2f> {
     // 通过BA优化求解
     pub fn ba_slove(&self) {
-        use crate::ceres_ba_bind::ffi::*;
+        use super::ceres_ba_bind::ffi::*;
         use nalgebra::{Unit, Vector3};
         let mut angle_axis = Vector3::new(0.0, 0.0, 0.0);
         let mut t = Vector3::new(0.0, 0.0, 0.0);

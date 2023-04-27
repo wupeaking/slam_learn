@@ -33,7 +33,7 @@ fn main() {
         .include("/usr/local/include/gtsam/3rdparty/Eigen")
         .compile("ceres_warp");
 
-    cxx_build::bridge("src/ceres_ba_bind.rs")
+    cxx_build::bridge("src/pose_estimation/ceres_ba_bind.rs")
         .file("ceres_demo/ceres_ba.cc")
         .cpp(true)
         .flag_if_supported("-std=c++14")
@@ -62,6 +62,25 @@ fn main() {
     println!("cargo:rustc-link-lib=gtsam");
     println!("cargo:rustc-link-lib=stdc++");
     // //  Add a directory to the library search path
-    println!("cargo:rustc-link-search=/usr/local/lib")
+    println!("cargo:rustc-link-search=/usr/local/lib");
     // export DYLD_LIBRARY_PATH=/opt/homebrew/opt/boost/lib:$DYLD_LIBRARY_PATH
+
+    cxx_build::bridge("src/bal_optimization/bal_bind.rs")
+        .file("src/bal_optimization/ceres_bal/bal.cc")
+        .cpp(true)
+        .flag_if_supported("-std=c++14")
+        .flag("-g")
+        .include("/usr/local/include/")
+        .include("/usr/local/include/gtsam/3rdparty/Eigen")
+        .compile("bal");
+    println!("cargo:rerun-if-changed=src/bal_optimization/bal.cc");
+    println!("cargo:rerun-if-changed=src/bal_optimization/bal.h");
+    println!("cargo:rustc-link-lib=ceres"); //ceres 需要依赖 glog lapack blas
+    println!("cargo:rustc-link-lib=glog");
+    println!("cargo:rustc-link-lib=lapack");
+    println!("cargo:rustc-link-lib=blas");
+    println!("cargo:rustc-link-lib=boost_serialization");
+    println!("cargo:rustc-link-lib=gtsam");
+    println!("cargo:rustc-link-lib=stdc++");
+    println!("cargo:rustc-link-search=/usr/local/lib");
 }
