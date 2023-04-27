@@ -48,5 +48,5 @@ fn main() {
 
     let mut opt = BALOpt::new("data/problem.txt").unwrap();
     opt.optimization();
-    opt.print_opt_result();
+    opt.print_opt_result(false);
 }

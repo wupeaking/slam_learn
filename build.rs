@@ -68,6 +68,7 @@ fn main() {
     cxx_build::bridge("src/bal_optimization/bal_bind.rs")
         .file("src/bal_optimization/ceres_bal/bal.cc")
         .cpp(true)
+        .opt_level(3) //如果不优化 ceres会需要特别长的时间  2w多个路标一次迭代需要8s左右 优化之后只需要0.2s左右
         .flag_if_supported("-std=c++14")
         .flag("-g")
         .include("/usr/local/include/")

@@ -222,7 +222,7 @@ impl BALOpt {
         }
     }
 
-    pub fn print_opt_result(&self) {
+    pub fn print_opt_result(&self, landmark_print: bool) {
         // 打印真实结果
         for (i, (camera_arg, camera_opt)) in self
             .camera_args
@@ -246,6 +246,9 @@ impl BALOpt {
                 camera_opt.k1,
                 camera_opt.k2,
             );
+        }
+        if !landmark_print {
+            return;
         }
         for (i, (point, point_opt)) in self.points.iter().zip(self.point_opt.iter()).enumerate() {
             println!(
@@ -273,6 +276,6 @@ mod tests {
             opt.points.len()
         );
         opt.optimization();
-        opt.print_opt_result();
+        opt.print_opt_result(false);
     }
 }
