@@ -84,4 +84,24 @@ fn main() {
     println!("cargo:rustc-link-lib=gtsam");
     println!("cargo:rustc-link-lib=stdc++");
     println!("cargo:rustc-link-search=/usr/local/lib");
+
+    cxx_build::bridge("src/pose_graph_optimization/pose_bind.rs")
+        .file("src/pose_graph_optimization/ceres_pose_graph/pose.cc")
+        .cpp(true)
+        .opt_level(3) //如果不优化 ceres会需要特别长的时间  2w多个路标一次迭代需要8s左右 优化之后只需要0.2s左右
+        .flag_if_supported("-std=c++14")
+        .flag("-g")
+        .include("/usr/local/include/")
+        .include("/usr/local/include/gtsam/3rdparty/Eigen")
+        .compile("poseopt");
+    println!("cargo:rerun-if-changed=src/pose_graph_optimization/ceres_pose_graph/pose.cc");
+    println!("cargo:rerun-if-changed=src/pose_graph_optimization/ceres_pose_graph/pose.h");
+    println!("cargo:rustc-link-lib=ceres"); //ceres 需要依赖 glog lapack blas
+    println!("cargo:rustc-link-lib=glog");
+    println!("cargo:rustc-link-lib=lapack");
+    println!("cargo:rustc-link-lib=blas");
+    println!("cargo:rustc-link-lib=boost_serialization");
+    println!("cargo:rustc-link-lib=gtsam");
+    println!("cargo:rustc-link-lib=stdc++");
+    println!("cargo:rustc-link-search=/usr/local/lib");
 }

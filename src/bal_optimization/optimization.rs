@@ -194,9 +194,9 @@ impl BALOpt {
                 let point_index = ob.point_index as i32;
                 let u = ob.observation.x;
                 let v = ob.observation.y;
-                let x = self.points[point_index as usize].x;
-                let y = self.points[point_index as usize].y;
-                let z = self.points[point_index as usize].z;
+                // let x = self.points[point_index as usize].x;
+                // let y = self.points[point_index as usize].y;
+                // let z = self.points[point_index as usize].z;
                 bal.as_mut()
                     .unwrap()
                     .add_residual_block(u, v, camera_index, point_index);

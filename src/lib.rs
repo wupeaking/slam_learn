@@ -5,3 +5,4 @@ pub mod bal_optimization;
 pub mod lie_group;
 pub mod lk_flow;
 pub mod pose_estimation;
+pub mod pose_graph_optimization;

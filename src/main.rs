@@ -5,11 +5,13 @@ mod cxx_build;
 use gtsam_build::bal_optimization::*;
 use gtsam_build::lk_flow;
 use gtsam_build::pose_estimation::*;
+use gtsam_build::pose_graph_optimization::*;
 use opencv::{self, core, prelude::*};
 
 fn main() {
     // use crate::demo;
 
+    // 相机的位姿估计
     let mut k = opencv::core::Mat::new_rows_cols_with_default(
         3,
         3,
@@ -43,10 +45,18 @@ fn main() {
     // use cpose_estimation::PoseEstimationDemo;
     pose_estimation.run();
 
+    // lk 光流实现
     let mut lk = lk_flow::LKFlow::new("data/1.png".to_string(), "data/2.png".to_string());
     lk.opencv_flow();
 
+    // BAL 优化问题
     let mut opt = BALOpt::new("data/problem.txt").unwrap();
     opt.optimization();
     opt.print_opt_result(false);
+
+    // 位姿图优化问题
+    let mut opt = PoseOpt::new("data/shape.g2o").unwrap();
+    opt.optimization();
+    opt.save_opt_poses("data/opt_poses.txt").unwrap();
+    opt.save_ori_poses("data/ori_poses.txt").unwrap();
 }
